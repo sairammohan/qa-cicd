@@ -1,0 +1,172 @@
+# ==============================================================================
+#  GitHub Actions CI/CD Workflow: API Test Automation
+# ==============================================================================
+#
+#  WHAT THIS DOES:
+#    - Automatically runs all API test cases on every push or pull request
+#    - Installs Python and all dependencies in a clean Ubuntu environment
+#    - Runs pytest and generates HTML + JSON reports
+#    - Uploads the test report as a downloadable artifact
+#    - Sends a pass/fail status back to GitHub (shown on PRs as a green/red check)
+#
+#  HOW TO READ THIS FILE:
+#    name     → Label for this workflow
+#    on       → WHEN to trigger this pipeline
+#    jobs     → WHAT to run (can be multiple parallel jobs)
+#    steps    → Individual commands inside a job
+# ==============================================================================
+
+name: API Test Suite
+
+# ─── Trigger Conditions ────────────────────────────────────────────────────────
+on:
+  push:
+    branches:
+      - main          # Run on every push to main branch
+      - develop       # Run on every push to develop branch
+  pull_request:
+    branches:
+      - main          # Run on every PR targeting main
+      - develop       # Run on every PR targeting develop
+  workflow_dispatch:  # Allow MANUAL trigger from GitHub UI (useful for QA)
+  schedule:
+    - cron: "0 6 * * *"   # Run nightly at 6:00 AM UTC (regression suite)
+
+# ─── Environment Variables ─────────────────────────────────────────────────────
+env:
+  PYTHON_VERSION: "3.11"
+  API_BASE_URL: "https://jsonplaceholder.typicode.com"
+
+# ─── Jobs ──────────────────────────────────────────────────────────────────────
+jobs:
+
+  # ── Job 1: Smoke Tests (fast, run on every commit) ─────────────────────────
+  smoke-tests:
+    name: "Smoke Tests"
+    runs-on: ubuntu-latest     # Use GitHub's free Ubuntu runner
+
+    steps:
+
+      # Step 1: Check out the repository code
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # Step 2: Set up Python
+      - name: Set Up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"          # Cache pip packages to speed up future runs
+
+      # Step 3: Install dependencies
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # Step 4: Run smoke tests only (tagged with @pytest.mark.smoke)
+      # On every push — fast check to catch obvious breakage
+      - name: Run Smoke Tests
+        run: |
+          pytest tests/ -m smoke \
+            --html=reports/smoke-report.html \
+            --self-contained-html \
+            --json-report \
+            --json-report-file=reports/smoke-report.json \
+            --base-url=${{ env.API_BASE_URL }} \
+            -v
+
+      # Step 5: Upload smoke test report (available for 7 days)
+      - name: Upload Smoke Test Report
+        if: always()    # Upload even if tests fail — crucial for debugging!
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-test-report
+          path: reports/
+          retention-days: 7
+
+  # ── Job 2: Full Regression Suite ───────────────────────────────────────────
+  regression-tests:
+    name: "Full Regression Suite"
+    runs-on: ubuntu-latest
+    needs: smoke-tests    # Only run if smoke tests PASS first
+
+    steps:
+
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set Up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # Run ALL tests (no marker filter)
+      - name: Run Full Regression
+        run: |
+          pytest tests/ \
+            --html=reports/regression-report.html \
+            --self-contained-html \
+            --json-report \
+            --json-report-file=reports/regression-report.json \
+            --base-url=${{ env.API_BASE_URL }} \
+            -v
+
+      # Upload the full regression report (kept for 30 days)
+      - name: Upload Regression Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regression-test-report-${{ github.run_number }}
+          path: reports/
+          retention-days: 30
+
+      # Step: Print a test summary to the GitHub Actions log
+      - name: Print Test Summary
+        if: always()
+        run: |
+          echo "======================================"
+          echo "  TEST RUN COMPLETE"
+          echo "  Branch   : ${{ github.ref_name }}"
+          echo "  Commit   : ${{ github.sha }}"
+          echo "  Trigger  : ${{ github.event_name }}"
+          echo "  Run #    : ${{ github.run_number }}"
+          echo "======================================"
+
+  # ── Job 3: Notify on Failure (can be extended to Slack/Email) ──────────────
+  notify-on-failure:
+    name: "Failure Notification"
+    runs-on: ubuntu-latest
+    needs: [smoke-tests, regression-tests]
+    if: failure()    # ONLY runs if a previous job failed
+
+    steps:
+      - name: Log Failure
+        run: |
+          echo "::error::One or more test jobs FAILED."
+          echo "Review the uploaded test reports in the Actions artifacts."
+          echo "Branch: ${{ github.ref_name }} | Commit: ${{ github.sha }}"
+
+      # ─── EXTENSION POINT ─────────────────────────────────────────────────────
+      # Uncomment and configure the block below to send Slack alerts on failure.
+      # You'll need to add SLACK_WEBHOOK_URL as a GitHub Secret.
+      #
+      # - name: Send Slack Alert
+      #   uses: slackapi/slack-github-action@v1.26.0
+      #   with:
+      #     payload: |
+      #       {
+      #         "text": "❌ API Tests FAILED on branch `${{ github.ref_name }}`",
+      #         "attachments": [{
+      #           "color": "danger",
+      #           "text": "Commit: ${{ github.sha }}\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+      #         }]
+      #       }
+      #   env:
+      #     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
