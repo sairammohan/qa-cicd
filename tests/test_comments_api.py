@@ -10,6 +10,7 @@
 """
 import pytest
 
+# Note: This test suite focuses on GET operations for comments, as the JSONPlaceholder API is read-only and does not support POST/PUT/DELETE for comments.
 
 class TestCommentsAPI:
     """Test cases for GET /comments"""
