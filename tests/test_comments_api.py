@@ -13,7 +13,7 @@ import pytest
 
 class TestCommentsAPI:
     """Test cases for GET /comments"""
-
+    @pytest.mark.smoke
     def test_get_all_comments_status_200(self, api_client):
         """TC-CMT-001: Verify GET /comments returns HTTP 200"""
         response = api_client.get("/comments")

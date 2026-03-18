@@ -13,7 +13,8 @@ import pytest
 
 class TestUsersAPI:
     """Test cases for GET /users endpoint"""
-
+    @pytest.mark.smoke
+    
     def test_get_all_users_status_200(self, api_client):
         """TC-USR-001: Verify GET /users returns HTTP 200 OK"""
         response = api_client.get("/users")
@@ -44,7 +45,7 @@ class TestUsersAPI:
                 assert field in user, (
                     f"Field '{field}' missing in user id={user.get('id')}"
                 )
-
+    @pytest.mark.smoke
     def test_get_single_user_status_200(self, api_client):
         """TC-USR-005: Verify GET /users/1 returns HTTP 200 OK"""
         response = api_client.get("/users/1")

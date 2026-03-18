@@ -15,6 +15,7 @@ import pytest
 class TestPostsAPIGet:
     """Test cases for GET /posts"""
 
+    @pytest.mark.smoke
     def test_get_all_posts_status_200(self, api_client):
         """TC-PST-001: Verify GET /posts returns HTTP 200"""
         response = api_client.get("/posts")
@@ -40,7 +41,7 @@ class TestPostsAPIGet:
                 assert field in post, (
                     f"Missing field '{field}' in post id={post.get('id')}"
                 )
-
+    @pytest.mark.smoke
     def test_get_single_post_status_200(self, api_client):
         """TC-PST-005: Verify GET /posts/1 returns HTTP 200"""
         response = api_client.get("/posts/1")
