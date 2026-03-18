@@ -49,11 +49,11 @@ jobs:
 
       # Step 1: Check out the repository code
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2
 
       # Step 2: Set up Python
       - name: Set Up Python ${{ env.PYTHON_VERSION }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v5.4.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: "pip"          # Cache pip packages to speed up future runs
@@ -79,7 +79,7 @@ jobs:
       # Step 5: Upload smoke test report (available for 7 days)
       - name: Upload Smoke Test Report
         if: always()    # Upload even if tests fail — crucial for debugging!
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.6.1
         with:
           name: smoke-test-report
           path: reports/
@@ -94,10 +94,10 @@ jobs:
     steps:
 
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2
 
       - name: Set Up Python ${{ env.PYTHON_VERSION }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v5.4.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: "pip"
@@ -121,7 +121,7 @@ jobs:
       # Upload the full regression report (kept for 30 days)
       - name: Upload Regression Report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.6.1
         with:
           name: regression-test-report-${{ github.run_number }}
           path: reports/
